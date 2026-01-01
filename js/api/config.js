@@ -79,7 +79,7 @@ const API_CONFIG = {
         },
         VIDEOS: {
             LIST: '/videos',
-            UPLOAD: '/videos/upload'
+            UPLOAD: '/upload-video'
         }
     }
 };
