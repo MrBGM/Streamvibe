@@ -363,8 +363,8 @@
 
         async function editContent(id) {
             try {
-                // Utiliser l'API publique pour récupérer les détails du contenu
-                const response = await ContentService.getById(id);
+                // Utiliser l'API admin pour récupérer les détails du contenu (inclut brouillons)
+                const response = await api.get(`/contents/${id}`, true);
 
                 if (response.success && response.data) {
                     const content = response.data;
