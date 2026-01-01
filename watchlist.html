@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ma Liste - StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header scrolled">
+        <div class="header-content">
+            <a href="/" class="logo">StreamVibe</a>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/">Accueil</a></li>
+                    <li><a href="/browse.html">Parcourir</a></li>
+                    <li><a href="/browse.html?type=film">Films</a></li>
+                    <li><a href="/browse.html?type=serie">Séries</a></li>
+                    <li><a href="/watchlist.html" class="active">Ma Liste</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-right">
+                <div class="profile-dropdown">
+                    <button class="profile-btn">
+                        <div class="profile-avatar" id="profileAvatar">?</div>
+                        <span>▼</span>
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileMenu"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main style="padding-top: calc(var(--header-height) + 2rem);">
+        <div class="container">
+            <h1 style="margin-bottom: 2rem;">Ma Liste</h1>
+
+            <div class="content-grid" id="watchlistGrid">
+                <div class="loading-spinner" style="grid-column: 1 / -1; justify-self: center;"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        // Vérifier l'authentification
+        if (!AuthService.isLoggedIn()) {
+            window.location.href = '/login.html';
+        }
+
+        const profile = AuthService.getCurrentProfile();
+        if (!profile) {
+            window.location.href = '/profiles.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            setupHeader();
+            await loadWatchlist();
+        });
+
+        function setupHeader() {
+            const profileMenu = document.getElementById('profileMenu');
+            const profileAvatar = document.getElementById('profileAvatar');
+
+            if (profile) {
+                profileAvatar.textContent = getAvatarIcon(profile.avatar);
+            }
+
+            profileMenu.innerHTML = `
+                <a href="/profiles.html">Changer de profil</a>
+                <a href="/account.html">Compte</a>
+                <hr>
+                <button onclick="AuthService.logout()">Déconnexion</button>
+            `;
+        }
+
+        async function loadWatchlist() {
+            const grid = document.getElementById('watchlistGrid');
+
+            try {
+                const response = await WatchlistService.getAll(profile._id);
+
+                grid.innerHTML = '';
+
+                if (response.success && response.data.length > 0) {
+                    response.data.forEach(item => {
+                        const content = item.contenu_id || item;
+                        const card = createWatchlistCard(content);
+                        grid.appendChild(card);
+                    });
+                } else {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                            <h3>Votre liste est vide</h3>
+                            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                                Ajoutez des films et séries à votre liste pour les retrouver facilement.
+                            </p>
+                            <a href="/browse.html" class="btn btn-primary">Parcourir le catalogue</a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                        <h3>Erreur de chargement</h3>
+                        <button class="btn btn-primary" onclick="loadWatchlist()">Réessayer</button>
+                    </div>
+                `;
+            }
+        }
+
+        function createWatchlistCard(content) {
+            const posterUrl = getPosterUrl(content);
+            const typeIcon = getTypeIcon(content.type);
+
+            const card = document.createElement('div');
+            card.className = 'content-card';
+            card.dataset.id = content._id;
+
+            card.innerHTML = `
+                <div class="content-card-poster">
+                    ${posterUrl
+                        ? `<img src="${posterUrl}" alt="${content.titre}" loading="lazy">`
+                        : `<div class="placeholder">${typeIcon}</div>`
+                    }
+                    <div class="content-card-overlay">
+                        <div class="content-card-actions">
+                            <button class="btn btn-icon btn-primary play-btn" title="Lecture">▶</button>
+                            <button class="btn btn-icon btn-secondary remove-btn" title="Retirer">✕</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="content-card-info">
+                    <h4 class="content-card-title">${content.titre}</h4>
+                    <div class="content-card-meta">
+                        <span>${content.annee_sortie || ''}</span>
+                        ${content.duree_minutes ? `<span>${formatDuration(content.duree_minutes)}</span>` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Clic sur la carte
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.play-btn') && !e.target.closest('.remove-btn')) {
+                    window.location.href = `/detail.html?id=${content._id}`;
+                }
+            });
+
+            // Bouton lecture
+            card.querySelector('.play-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.location.href = `/player.html?id=${content._id}`;
+            });
+
+            // Bouton retirer
+            card.querySelector('.remove-btn').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    await WatchlistService.remove(profile._id, content._id);
+                    card.remove();
+                    toast.success('Retiré de Ma Liste');
+
+                    // Vérifier si la liste est vide
+                    const grid = document.getElementById('watchlistGrid');
+                    if (grid.children.length === 0) {
+                        loadWatchlist();
+                    }
+                } catch (error) {
+                    toast.error('Erreur lors de la suppression');
+                }
+            });
+
+            return card;
+        }
+    </script>
+</body>
+</html>

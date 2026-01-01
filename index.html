@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamVibe - Films et Séries en Streaming</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">StreamVibe</a>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/" class="active">Accueil</a></li>
+                    <li><a href="/browse.html">Parcourir</a></li>
+                    <li><a href="/browse.html?type=film">Films</a></li>
+                    <li><a href="/browse.html?type=serie">Séries</a></li>
+                    <li><a href="/watchlist.html">Ma Liste</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-right">
+                <div class="search-box">
+                    <input type="text" placeholder="Titres, personnes, genres">
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <div class="profile-dropdown" id="profileDropdown">
+                    <button class="profile-btn">
+                        <div class="profile-avatar" id="profileAvatar">?</div>
+                        <span>▼</span>
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileMenu">
+                        <!-- Rempli dynamiquement -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="heroSection">
+        <div class="hero-content">
+            <h1 class="hero-title" id="heroTitle">Bienvenue sur StreamVibe</h1>
+            <p class="hero-description" id="heroDescription">
+                Découvrez des milliers de films et séries en streaming illimité.
+            </p>
+            <div class="hero-meta" id="heroMeta"></div>
+            <div class="hero-buttons">
+                <button class="btn btn-primary btn-lg" id="heroPlayBtn">
+                    ▶ Lecture
+                </button>
+                <button class="btn btn-secondary btn-lg" id="heroInfoBtn">
+                    ℹ Plus d'infos
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main id="mainContent">
+        <!-- Les sections seront ajoutées dynamiquement -->
+        <div class="loading-container" style="text-align: center; padding: 3rem;">
+            <div class="loading-spinner"></div>
+            <p>Chargement des contenus...</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer style="padding: 3rem 4%; text-align: center; color: var(--text-muted);">
+        <p>© 2024 StreamVibe. Tous droits réservés. Projet ISGE 2025.</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script src="/js/pages/home.js"></script>
+</body>
+</html>

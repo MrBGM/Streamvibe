@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Contenus - Admin StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="admin-logo">StreamVibe</div>
+            <div class="admin-subtitle">Administration</div>
+
+            <nav>
+                <ul class="admin-nav">
+                    <li><a href="/admin/index.html"><span class="admin-nav-icon">📊</span><span>Dashboard</span></a></li>
+                    <li><a href="/admin/contents.html" class="active"><span class="admin-nav-icon">🎬</span><span>Contenus</span></a></li>
+                    <li><a href="/admin/upload.html"><span class="admin-nav-icon">📤</span><span>Upload Vidéos</span></a></li>
+                    <li><a href="/admin/users.html"><span class="admin-nav-icon">👥</span><span>Utilisateurs</span></a></li>
+                    <div class="admin-nav-divider"></div>
+                    <li><a href="/" target="_blank"><span class="admin-nav-icon">🌐</span><span>Voir le site</span></a></li>
+                    <li><a href="#" onclick="AdminAuthService.logout()"><span class="admin-nav-icon">🚪</span><span>Déconnexion</span></a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <!-- Liste des contenus -->
+            <div id="contentsList">
+                <div class="admin-header">
+                    <h1 class="admin-page-title">Gestion des Contenus</h1>
+                    <div class="admin-header-actions">
+                        <button class="btn btn-primary" onclick="showForm()">+ Nouveau contenu</button>
+                    </div>
+                </div>
+
+                <div class="admin-table-container">
+                    <div class="admin-table-header">
+                        <h3 class="admin-table-title" id="tableTitle">Tous les contenus</h3>
+                        <div class="admin-table-filters">
+                            <select class="filter-select" id="filterType">
+                                <option value="">Tous types</option>
+                                <option value="film">Films</option>
+                                <option value="serie">Séries</option>
+                                <option value="documentaire">Documentaires</option>
+                            </select>
+                            <select class="filter-select" id="filterStatus">
+                                <option value="">Tous statuts</option>
+                                <option value="publie">Publié</option>
+                                <option value="brouillon">Brouillon</option>
+                                <option value="archive">Archivé</option>
+                            </select>
+                        </div>
+                    </div>
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Titre</th>
+                                <th>Type</th>
+                                <th>Année</th>
+                                <th>Note</th>
+                                <th>Statut</th>
+                                <th>Vidéo</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contentsTableBody">
+                            <tr><td colspan="7" style="text-align: center;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+
+            <!-- Formulaire création/édition -->
+            <div id="contentForm" style="display: none;">
+                <div class="admin-header">
+                    <h1 class="admin-page-title" id="formTitle">Nouveau contenu</h1>
+                    <div class="admin-header-actions">
+                        <button class="btn btn-secondary" onclick="hideForm()">← Retour</button>
+                    </div>
+                </div>
+
+                <div class="admin-form">
+                    <form id="contentFormElement">
+                        <input type="hidden" id="contentId">
+
+                        <div class="form-section">
+                            <h4 class="form-section-title">Informations de base</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Titre *</label>
+                                    <input type="text" class="form-control" id="titre" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Type *</label>
+                                    <select class="form-control form-select" id="type" required>
+                                        <option value="film">Film</option>
+                                        <option value="serie">Série</option>
+                                        <option value="documentaire">Documentaire</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" id="description" rows="4"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Synopsis court</label>
+                                <input type="text" class="form-control" id="synopsis_court" maxlength="200">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4 class="form-section-title">Détails</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Année de sortie</label>
+                                    <input type="number" class="form-control" id="annee_sortie" min="1900" max="2030">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Durée (minutes)</label>
+                                    <input type="number" class="form-control" id="duree_minutes" min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Classification âge</label>
+                                    <select class="form-control form-select" id="classification_age">
+                                        <option value="G">Tout public</option>
+                                        <option value="PG">PG</option>
+                                        <option value="13+">13+</option>
+                                        <option value="16+">16+</option>
+                                        <option value="18+">18+</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Langue originale</label>
+                                    <select class="form-control form-select" id="langue_originale">
+                                        <option value="fr">Français</option>
+                                        <option value="en">Anglais</option>
+                                        <option value="es">Espagnol</option>
+                                        <option value="other">Autre</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Réalisateur</label>
+                                    <input type="text" class="form-control" id="realisateur">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Genres (séparés par des virgules)</label>
+                                <input type="text" class="form-control" id="genres" placeholder="Action, Thriller, Science-Fiction">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Acteurs (séparés par des virgules)</label>
+                                <input type="text" class="form-control" id="acteurs" placeholder="Leonardo DiCaprio, Tom Hardy">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4 class="form-section-title">Médias</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">URL Affiche</label>
+                                    <input type="url" class="form-control" id="affiche_url" placeholder="https://...">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">URL Bannière</label>
+                                    <input type="url" class="form-control" id="banniere_url" placeholder="https://...">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">URL Vidéo</label>
+                                <input type="text" class="form-control" id="video_url" placeholder="/videos/nom-fichier.mp4">
+                                <small style="color: var(--text-muted);">
+                                    Chemin relatif vers la vidéo uploadée (ex: /videos/inception.mp4)
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4 class="form-section-title">Options de publication</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Statut</label>
+                                    <select class="form-control form-select" id="statut_publication">
+                                        <option value="brouillon">Brouillon</option>
+                                        <option value="publie">Publié</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row" style="margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label class="form-check">
+                                        <input type="checkbox" id="tendance">
+                                        <span>Afficher dans "Tendances"</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-check">
+                                        <input type="checkbox" id="nouveau">
+                                        <span>Afficher dans "Nouveautés"</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-check">
+                                        <input type="checkbox" id="recommande">
+                                        <span>Recommandé</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                            <button type="button" class="btn btn-secondary" onclick="hideForm()">Annuler</button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">Enregistrer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        if (!AdminAuthService.isLoggedIn()) {
+            window.location.href = '/admin/login.html';
+        }
+
+        let currentPage = 1;
+        let editingId = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadContents();
+            setupFilters();
+            checkUrlParams();
+        });
+
+        function checkUrlParams() {
+            const action = getUrlParam('action');
+            const id = getUrlParam('id');
+
+            if (action === 'create') {
+                showForm();
+            } else if (action === 'edit' && id) {
+                editContent(id);
+            }
+        }
+
+        function setupFilters() {
+            document.getElementById('filterType').addEventListener('change', loadContents);
+            document.getElementById('filterStatus').addEventListener('change', loadContents);
+        }
+
+        async function loadContents() {
+            const tbody = document.getElementById('contentsTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Chargement...</td></tr>';
+
+            try {
+                const params = {
+                    limit: 10,
+                    page: currentPage
+                };
+
+                const type = document.getElementById('filterType').value;
+                const status = document.getElementById('filterStatus').value;
+
+                if (type) params.type = type;
+                if (status) params.statut_publication = status;
+
+                const response = await AdminContentService.getAll(params);
+
+                if (response.success && response.data.length > 0) {
+                    tbody.innerHTML = response.data.map(content => `
+                        <tr>
+                            <td><strong>${content.titre}</strong></td>
+                            <td>${content.type}</td>
+                            <td>${content.annee_sortie || '-'}</td>
+                            <td>${content.note_moyenne ? content.note_moyenne.toFixed(1) : '-'}</td>
+                            <td>
+                                <span class="badge ${getStatusBadge(content.statut_publication)}">
+                                    ${content.statut_publication}
+                                </span>
+                            </td>
+                            <td>
+                                ${content.video_url ? '✅' : '❌'}
+                            </td>
+                            <td class="actions">
+                                <button class="action-btn edit" onclick="editContent('${content._id}')" title="Modifier">✏️</button>
+                                ${content.statut_publication !== 'publie' ?
+                                    `<button class="action-btn" onclick="publishContent('${content._id}')" title="Publier">📢</button>` : ''}
+                                <button class="action-btn delete" onclick="deleteContent('${content._id}')" title="Supprimer">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Pagination
+                    if (response.pages > 1) {
+                        renderPagination(response.pages);
+                    }
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Aucun contenu trouvé</td></tr>';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Erreur de chargement</td></tr>';
+            }
+        }
+
+        function getStatusBadge(status) {
+            switch (status) {
+                case 'publie': return 'badge-success';
+                case 'brouillon': return 'badge-warning';
+                case 'archive': return 'badge-danger';
+                default: return 'badge-info';
+            }
+        }
+
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                btn.textContent = i;
+                btn.addEventListener('click', () => {
+                    currentPage = i;
+                    loadContents();
+                });
+                pagination.appendChild(btn);
+            }
+        }
+
+        function showForm() {
+            document.getElementById('contentsList').style.display = 'none';
+            document.getElementById('contentForm').style.display = 'block';
+            document.getElementById('formTitle').textContent = 'Nouveau contenu';
+            document.getElementById('contentFormElement').reset();
+            editingId = null;
+        }
+
+        function hideForm() {
+            document.getElementById('contentsList').style.display = 'block';
+            document.getElementById('contentForm').style.display = 'none';
+            editingId = null;
+            // Nettoyer URL params
+            history.pushState({}, '', '/admin/contents.html');
+        }
+
+        async function editContent(id) {
+            try {
+                const response = await api.get(`/contents/${id}`, true);
+
+                if (response.success && response.data) {
+                    const content = response.data;
+                    editingId = id;
+
+                    document.getElementById('contentId').value = id;
+                    document.getElementById('titre').value = content.titre || '';
+                    document.getElementById('type').value = content.type || 'film';
+                    document.getElementById('description').value = content.description || '';
+                    document.getElementById('synopsis_court').value = content.synopsis_court || '';
+                    document.getElementById('annee_sortie').value = content.annee_sortie || '';
+                    document.getElementById('duree_minutes').value = content.duree_minutes || '';
+                    document.getElementById('classification_age').value = content.classification_age || 'G';
+                    document.getElementById('langue_originale').value = content.langue_originale || 'fr';
+                    document.getElementById('realisateur').value = content.realisateur || '';
+                    document.getElementById('genres').value = (content.genres || []).join(', ');
+                    document.getElementById('acteurs').value = (content.acteurs || []).join(', ');
+                    document.getElementById('affiche_url').value = content.affiche_url || '';
+                    document.getElementById('banniere_url').value = content.banniere_url || '';
+                    document.getElementById('video_url').value = content.video_url || '';
+                    document.getElementById('statut_publication').value = content.statut_publication || 'brouillon';
+                    document.getElementById('tendance').checked = content.tendance || false;
+                    document.getElementById('nouveau').checked = content.nouveau || false;
+                    document.getElementById('recommande').checked = content.recommande || false;
+
+                    document.getElementById('formTitle').textContent = 'Modifier: ' + content.titre;
+                    document.getElementById('contentsList').style.display = 'none';
+                    document.getElementById('contentForm').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                toast.error('Erreur lors du chargement du contenu');
+            }
+        }
+
+        // Soumettre le formulaire
+        document.getElementById('contentFormElement').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const contentData = {
+                titre: document.getElementById('titre').value,
+                type: document.getElementById('type').value,
+                description: document.getElementById('description').value,
+                synopsis_court: document.getElementById('synopsis_court').value,
+                annee_sortie: parseInt(document.getElementById('annee_sortie').value) || null,
+                duree_minutes: parseInt(document.getElementById('duree_minutes').value) || null,
+                classification_age: document.getElementById('classification_age').value,
+                langue_originale: document.getElementById('langue_originale').value,
+                realisateur: document.getElementById('realisateur').value,
+                genres: document.getElementById('genres').value.split(',').map(g => g.trim()).filter(g => g),
+                acteurs: document.getElementById('acteurs').value.split(',').map(a => a.trim()).filter(a => a),
+                affiche_url: document.getElementById('affiche_url').value,
+                banniere_url: document.getElementById('banniere_url').value,
+                video_url: document.getElementById('video_url').value,
+                statut_publication: document.getElementById('statut_publication').value,
+                tendance: document.getElementById('tendance').checked,
+                nouveau: document.getElementById('nouveau').checked,
+                recommande: document.getElementById('recommande').checked
+            };
+
+            try {
+                let response;
+                if (editingId) {
+                    response = await AdminContentService.update(editingId, contentData);
+                } else {
+                    response = await AdminContentService.create(contentData);
+                }
+
+                if (response.success) {
+                    toast.success(editingId ? 'Contenu mis à jour' : 'Contenu créé');
+                    hideForm();
+                    await loadContents();
+                } else {
+                    toast.error(response.message || 'Erreur');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                toast.error(error.message || 'Erreur lors de l\'enregistrement');
+            }
+        });
+
+        async function publishContent(id) {
+            if (!confirm('Publier ce contenu?')) return;
+
+            try {
+                const response = await AdminContentService.publish(id);
+                if (response.success) {
+                    toast.success('Contenu publié');
+                    await loadContents();
+                }
+            } catch (error) {
+                toast.error('Erreur lors de la publication');
+            }
+        }
+
+        async function deleteContent(id) {
+            if (!confirm('Supprimer ce contenu? Cette action est irréversible.')) return;
+
+            try {
+                const response = await AdminContentService.delete(id);
+                if (response.success) {
+                    toast.success('Contenu archivé');
+                    await loadContents();
+                }
+            } catch (error) {
+                toast.error('Erreur lors de la suppression');
+            }
+        }
+    </script>
+</body>
+</html>

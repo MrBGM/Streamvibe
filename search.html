@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche - StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header scrolled">
+        <div class="header-content">
+            <a href="/" class="logo">StreamVibe</a>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/">Accueil</a></li>
+                    <li><a href="/browse.html">Parcourir</a></li>
+                    <li><a href="/browse.html?type=film">Films</a></li>
+                    <li><a href="/browse.html?type=serie">Séries</a></li>
+                    <li><a href="/watchlist.html">Ma Liste</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-right">
+                <div class="profile-dropdown">
+                    <button class="profile-btn">
+                        <div class="profile-avatar" id="profileAvatar">?</div>
+                        <span>▼</span>
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileMenu"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main style="padding-top: calc(var(--header-height) + 2rem);">
+        <div class="container">
+            <!-- Search bar -->
+            <div style="margin-bottom: 2rem;">
+                <div style="display: flex; gap: 1rem; max-width: 600px;">
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Rechercher des films, séries, acteurs..."
+                           style="flex: 1; font-size: 1.1rem;">
+                    <button class="btn btn-primary" id="searchBtn">🔍 Rechercher</button>
+                </div>
+            </div>
+
+            <h1 id="pageTitle" style="margin-bottom: 2rem;">Résultats de recherche</h1>
+
+            <div class="content-grid" id="resultsGrid">
+                <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                    <p style="color: var(--text-muted);">Entrez un terme de recherche</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            setupHeader();
+
+            const query = getUrlParam('q');
+            if (query) {
+                document.getElementById('searchInput').value = query;
+                performSearch(query);
+            }
+
+            // Événements recherche
+            document.getElementById('searchBtn').addEventListener('click', () => {
+                const query = document.getElementById('searchInput').value.trim();
+                if (query) {
+                    performSearch(query);
+                }
+            });
+
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const query = e.target.value.trim();
+                    if (query) {
+                        performSearch(query);
+                    }
+                }
+            });
+        });
+
+        function setupHeader() {
+            const profileMenu = document.getElementById('profileMenu');
+            const profileAvatar = document.getElementById('profileAvatar');
+
+            if (AuthService.isLoggedIn()) {
+                const profile = AuthService.getCurrentProfile();
+                if (profile) {
+                    profileAvatar.textContent = getAvatarIcon(profile.avatar);
+                }
+                profileMenu.innerHTML = `
+                    <a href="/profiles.html">Changer de profil</a>
+                    <a href="/account.html">Compte</a>
+                    <hr>
+                    <button onclick="AuthService.logout()">Déconnexion</button>
+                `;
+            } else {
+                profileMenu.innerHTML = `
+                    <a href="/login.html">Se connecter</a>
+                    <a href="/register.html">S'inscrire</a>
+                `;
+            }
+        }
+
+        async function performSearch(query) {
+            const grid = document.getElementById('resultsGrid');
+            const title = document.getElementById('pageTitle');
+
+            // Mettre à jour l'URL
+            history.pushState({}, '', `/search.html?q=${encodeURIComponent(query)}`);
+
+            title.textContent = `Résultats pour "${query}"`;
+            grid.innerHTML = '<div class="loading-spinner" style="grid-column: 1 / -1; justify-self: center;"></div>';
+
+            try {
+                const response = await ContentService.search(query);
+
+                if (response.success && response.data.length > 0) {
+                    grid.innerHTML = '';
+                    response.data.forEach(content => {
+                        grid.appendChild(createContentCard(content));
+                    });
+                    title.textContent = `${response.count} résultat(s) pour "${query}"`;
+                } else {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                            <h3>Aucun résultat</h3>
+                            <p style="color: var(--text-muted);">
+                                Aucun contenu ne correspond à "${query}"
+                            </p>
+                            <a href="/browse.html" class="btn btn-primary" style="margin-top: 1rem;">
+                                Parcourir le catalogue
+                            </a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                        <h3>Erreur de recherche</h3>
+                        <button class="btn btn-primary" onclick="performSearch('${query}')">Réessayer</button>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
