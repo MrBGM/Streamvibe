@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Admin StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="admin-logo">StreamVibe</div>
+            <div class="admin-subtitle">Administration</div>
+
+            <nav>
+                <ul class="admin-nav">
+                    <li>
+                        <a href="/admin/index.html" class="active">
+                            <span class="admin-nav-icon">📊</span>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/admin/contents.html">
+                            <span class="admin-nav-icon">🎬</span>
+                            <span>Contenus</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/admin/upload.html">
+                            <span class="admin-nav-icon">📤</span>
+                            <span>Upload Vidéos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/admin/users.html">
+                            <span class="admin-nav-icon">👥</span>
+                            <span>Utilisateurs</span>
+                        </a>
+                    </li>
+                    <div class="admin-nav-divider"></div>
+                    <li>
+                        <a href="/" target="_blank">
+                            <span class="admin-nav-icon">🌐</span>
+                            <span>Voir le site</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="AdminAuthService.logout()">
+                            <span class="admin-nav-icon">🚪</span>
+                            <span>Déconnexion</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="admin-user-info">
+                <div class="admin-user-name" id="adminName">Admin</div>
+                <div class="admin-user-role" id="adminRole">Super Admin</div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <div class="admin-header">
+                <h1 class="admin-page-title">Dashboard</h1>
+                <div class="admin-header-actions">
+                    <a href="/admin/contents.html?action=create" class="btn btn-primary">
+                        + Nouveau contenu
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-icon users">👥</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="totalUsers">-</div>
+                        <div class="stat-label">Utilisateurs</div>
+                        <div class="stat-change positive" id="activeUsers">-</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon content">🎬</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="totalContents">-</div>
+                        <div class="stat-label">Contenus</div>
+                        <div class="stat-change" id="publishedContents">-</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon revenue">💰</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="monthlyRevenue">-</div>
+                        <div class="stat-label">Revenus mensuels</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon views">👁️</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="totalViews">-</div>
+                        <div class="stat-label">Vues totales</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <h3 style="margin-bottom: 1rem;">Actions rapides</h3>
+            <div class="quick-actions">
+                <a href="/admin/contents.html?action=create" class="quick-action-card">
+                    <div class="quick-action-icon">➕</div>
+                    <div class="quick-action-title">Ajouter un film</div>
+                </a>
+                <a href="/admin/upload.html" class="quick-action-card">
+                    <div class="quick-action-icon">📤</div>
+                    <div class="quick-action-title">Upload vidéo</div>
+                </a>
+                <a href="/admin/users.html" class="quick-action-card">
+                    <div class="quick-action-icon">👥</div>
+                    <div class="quick-action-title">Gérer utilisateurs</div>
+                </a>
+                <a href="/admin/contents.html" class="quick-action-card">
+                    <div class="quick-action-icon">📋</div>
+                    <div class="quick-action-title">Voir contenus</div>
+                </a>
+            </div>
+
+            <!-- Recent Content -->
+            <div class="admin-table-container" style="margin-top: 2rem;">
+                <div class="admin-table-header">
+                    <h3 class="admin-table-title">Contenus récents</h3>
+                    <a href="/admin/contents.html" class="btn btn-sm btn-secondary">Voir tout</a>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Titre</th>
+                            <th>Type</th>
+                            <th>Statut</th>
+                            <th>Date ajout</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentContents">
+                        <tr>
+                            <td colspan="5" style="text-align: center;">Chargement...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Recent Users -->
+            <div class="admin-table-container" style="margin-top: 2rem;">
+                <div class="admin-table-header">
+                    <h3 class="admin-table-title">Utilisateurs récents</h3>
+                    <a href="/admin/users.html" class="btn btn-sm btn-secondary">Voir tout</a>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Email</th>
+                            <th>Abonnement</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentUsers">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">Chargement...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        // Vérifier l'authentification admin
+        if (!AdminAuthService.isLoggedIn()) {
+            window.location.href = '/admin/login.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadAdminInfo();
+            await loadDashboardStats();
+            await loadRecentContents();
+            await loadRecentUsers();
+        });
+
+        async function loadAdminInfo() {
+            try {
+                const response = await AdminAuthService.getMe();
+                if (response.success) {
+                    document.getElementById('adminName').textContent = response.data.nom_complet;
+                    document.getElementById('adminRole').textContent = response.data.role === 'super_admin' ? 'Super Admin' : 'Admin';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const [dashboardResponse, revenueResponse] = await Promise.all([
+                    AdminStatsService.getDashboard(),
+                    AdminStatsService.getRevenue()
+                ]);
+
+                if (dashboardResponse.success) {
+                    const stats = dashboardResponse.data;
+
+                    document.getElementById('totalUsers').textContent = formatNumber(stats.utilisateurs.total);
+                    document.getElementById('activeUsers').textContent = `${stats.utilisateurs.actifs} actifs`;
+
+                    document.getElementById('totalContents').textContent = formatNumber(stats.contenus.total);
+                    document.getElementById('publishedContents').textContent = `${stats.contenus.publies} publiés`;
+
+                    // Calculer les vues totales (si disponible)
+                    document.getElementById('totalViews').textContent = formatNumber(stats.contenus.vues_totales || 0);
+                }
+
+                if (revenueResponse.success) {
+                    document.getElementById('monthlyRevenue').textContent = formatPrice(revenueResponse.data.revenu_mensuel_estime);
+                }
+            } catch (error) {
+                console.error('Erreur stats:', error);
+            }
+        }
+
+        async function loadRecentContents() {
+            try {
+                const response = await AdminContentService.getAll({ limit: 5 });
+                const tbody = document.getElementById('recentContents');
+
+                if (response.success && response.data.length > 0) {
+                    tbody.innerHTML = response.data.map(content => `
+                        <tr>
+                            <td>
+                                <strong>${content.titre}</strong>
+                            </td>
+                            <td>${content.type}</td>
+                            <td>
+                                <span class="badge ${content.statut_publication === 'publie' ? 'badge-success' : 'badge-warning'}">
+                                    ${content.statut_publication}
+                                </span>
+                            </td>
+                            <td>${formatDateShort(content.date_ajout)}</td>
+                            <td class="actions">
+                                <a href="/admin/contents.html?action=edit&id=${content._id}" class="action-btn edit" title="Modifier">✏️</a>
+                                <a href="/detail.html?id=${content._id}" target="_blank" class="action-btn" title="Voir">👁️</a>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun contenu</td></tr>';
+                }
+            } catch (error) {
+                console.error('Erreur contenus:', error);
+            }
+        }
+
+        async function loadRecentUsers() {
+            try {
+                const response = await AdminUserService.getAll({ limit: 5 });
+                const tbody = document.getElementById('recentUsers');
+
+                if (response.success && response.data.length > 0) {
+                    tbody.innerHTML = response.data.map(user => `
+                        <tr>
+                            <td class="user-cell">
+                                <div class="user-avatar" style="background-color: ${stringToColor(user.nom_complet)}">
+                                    ${getInitials(user.nom_complet)}
+                                </div>
+                                <span>${user.nom_complet}</span>
+                            </td>
+                            <td>${user.email}</td>
+                            <td>
+                                <span class="badge ${user.type_abonnement === 'premium' ? 'badge-success' : 'badge-info'}">
+                                    ${user.type_abonnement}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge ${user.statut_compte === 'actif' ? 'badge-success' : 'badge-danger'}">
+                                    ${user.statut_compte}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Aucun utilisateur</td></tr>';
+                }
+            } catch (error) {
+                console.error('Erreur utilisateurs:', error);
+            }
+        }
+    </script>
+</body>
+</html>

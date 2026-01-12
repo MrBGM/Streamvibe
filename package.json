@@ -1,0 +1,16 @@
+{
+  "name": "streamvibe-frontend",
+  "version": "1.0.0",
+  "description": "StreamVibe - Site de streaming video comme Netflix",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server -p 3000 -c-1 --cors",
+    "dev": "npx http-server -p 3000 -c-1 --cors -o"
+  },
+  "keywords": ["streaming", "video", "netflix", "frontend"],
+  "author": "MrBGM",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

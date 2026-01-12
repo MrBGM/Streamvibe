@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qui regarde? - StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <div class="profiles-page">
+        <a href="/" class="logo" style="position: absolute; top: 2rem; left: 2rem;">StreamVibe</a>
+
+        <h1 class="profiles-title">Qui regarde?</h1>
+
+        <div class="profiles-grid" id="profilesGrid">
+            <!-- Rempli dynamiquement -->
+            <div class="loading-spinner"></div>
+        </div>
+
+        <button class="btn btn-outline" id="manageProfilesBtn" style="display: none;">
+            Gérer les profils
+        </button>
+    </div>
+
+    <!-- Modal Créer/Modifier Profil -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Nouveau profil</h3>
+                <button class="modal-close" onclick="closeProfileModal()">✕</button>
+            </div>
+            <form id="profileForm">
+                <div class="form-group">
+                    <label class="form-label">Nom du profil</label>
+                    <input type="text" class="form-control" id="profileName"
+                           placeholder="Nom du profil" required maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Avatar</label>
+                    <div class="avatar-grid" id="avatarGrid">
+                        <!-- Avatars -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Type de profil</label>
+                    <select class="form-control form-select" id="profileType">
+                        <option value="adulte">Adulte</option>
+                        <option value="enfant">Enfant</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Genres préférés</label>
+                    <div class="genres-grid" id="genresGrid">
+                        <!-- Genres -->
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeProfileModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .avatar-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .avatar-option {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--border-radius);
+            background: var(--surface-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all var(--transition-fast);
+        }
+        .avatar-option:hover,
+        .avatar-option.selected {
+            border-color: var(--primary-color);
+        }
+        .genres-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .genre-option {
+            padding: 0.5rem 1rem;
+            background: var(--surface-light);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all var(--transition-fast);
+        }
+        .genre-option:hover,
+        .genre-option.selected {
+            background: var(--primary-color);
+            color: var(--text-primary);
+        }
+    </style>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        // Variables globales
+        let profiles = [];
+        let editingProfileId = null;
+        let selectedAvatar = 'avatar_1';
+        let selectedGenres = [];
+
+        const AVATARS = [
+            { id: 'avatar_1', icon: '👤' },
+            { id: 'avatar_2', icon: '👩' },
+            { id: 'avatar_3', icon: '🎮' },
+            { id: 'avatar_4', icon: '🎬' },
+            { id: 'avatar_5', icon: '🌟' },
+            { id: 'avatar_6', icon: '🦊' },
+            { id: 'avatar_7', icon: '🐱' },
+            { id: 'avatar_8', icon: '🐶' }
+        ];
+
+        const GENRES = [
+            'Action', 'Comédie', 'Drame', 'Horreur', 'Science-Fiction',
+            'Thriller', 'Romance', 'Animation', 'Documentaire', 'Aventure'
+        ];
+
+        // Vérifier l'authentification
+        if (!AuthService.isLoggedIn()) {
+            window.location.href = '/login.html';
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadProfiles();
+            initAvatarGrid();
+            initGenresGrid();
+        });
+
+        // Charger les profils
+        async function loadProfiles() {
+            const grid = document.getElementById('profilesGrid');
+            const manageBtn = document.getElementById('manageProfilesBtn');
+
+            try {
+                const response = await ProfileService.getAll();
+
+                if (response.success) {
+                    profiles = response.data;
+
+                    grid.innerHTML = '';
+
+                    // Afficher les profils existants
+                    profiles.forEach(profile => {
+                        const card = createProfileCard(profile);
+                        grid.appendChild(card);
+                    });
+
+                    // Bouton ajouter (max 5 profils)
+                    if (profiles.length < 5) {
+                        const addCard = document.createElement('div');
+                        addCard.className = 'profile-card add-profile';
+                        addCard.innerHTML = `
+                            <div class="avatar">+</div>
+                            <div class="name">Ajouter un profil</div>
+                        `;
+                        addCard.addEventListener('click', () => openProfileModal());
+                        grid.appendChild(addCard);
+                    }
+
+                    manageBtn.style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Erreur chargement profils:', error);
+                grid.innerHTML = `
+                    <p style="color: var(--text-muted);">
+                        Erreur de chargement. <a href="#" onclick="loadProfiles()">Réessayer</a>
+                    </p>
+                `;
+            }
+        }
+
+        // Créer une carte profil
+        function createProfileCard(profile) {
+            const card = document.createElement('div');
+            card.className = 'profile-card';
+            card.dataset.id = profile._id;
+
+            const icon = getAvatarIcon(profile.avatar);
+
+            card.innerHTML = `
+                <div class="avatar" style="background-color: ${stringToColor(profile.nom_profil)}">${icon}</div>
+                <div class="name">${profile.nom_profil}</div>
+            `;
+
+            card.addEventListener('click', () => selectProfile(profile));
+
+            return card;
+        }
+
+        // Sélectionner un profil
+        async function selectProfile(profile) {
+            try {
+                await ProfileService.select(profile._id);
+                AuthService.setCurrentProfile(profile);
+                toast.success(`Bienvenue, ${profile.nom_profil}!`);
+                window.location.href = '/';
+            } catch (error) {
+                toast.error('Erreur lors de la sélection du profil');
+            }
+        }
+
+        // Ouvrir modal profil
+        function openProfileModal(profileId = null) {
+            editingProfileId = profileId;
+            const modal = document.getElementById('profileModal');
+            const title = document.getElementById('modalTitle');
+            const form = document.getElementById('profileForm');
+
+            if (profileId) {
+                title.textContent = 'Modifier le profil';
+                const profile = profiles.find(p => p._id === profileId);
+                if (profile) {
+                    document.getElementById('profileName').value = profile.nom_profil;
+                    document.getElementById('profileType').value = profile.type_profil;
+                    selectAvatar(profile.avatar);
+                    selectedGenres = profile.genres_preferes || [];
+                    updateGenresUI();
+                }
+            } else {
+                title.textContent = 'Nouveau profil';
+                form.reset();
+                selectAvatar('avatar_1');
+                selectedGenres = [];
+                updateGenresUI();
+            }
+
+            modal.classList.add('active');
+        }
+
+        // Fermer modal profil
+        function closeProfileModal() {
+            document.getElementById('profileModal').classList.remove('active');
+            editingProfileId = null;
+        }
+
+        // Initialiser grille avatars
+        function initAvatarGrid() {
+            const grid = document.getElementById('avatarGrid');
+            grid.innerHTML = '';
+
+            AVATARS.forEach(avatar => {
+                const option = document.createElement('div');
+                option.className = 'avatar-option';
+                option.dataset.id = avatar.id;
+                option.textContent = avatar.icon;
+                option.addEventListener('click', () => selectAvatar(avatar.id));
+                grid.appendChild(option);
+            });
+
+            selectAvatar('avatar_1');
+        }
+
+        // Sélectionner avatar
+        function selectAvatar(avatarId) {
+            selectedAvatar = avatarId;
+            document.querySelectorAll('.avatar-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.id === avatarId);
+            });
+        }
+
+        // Initialiser grille genres
+        function initGenresGrid() {
+            const grid = document.getElementById('genresGrid');
+            grid.innerHTML = '';
+
+            GENRES.forEach(genre => {
+                const option = document.createElement('div');
+                option.className = 'genre-option';
+                option.textContent = genre;
+                option.addEventListener('click', () => toggleGenre(genre));
+                grid.appendChild(option);
+            });
+        }
+
+        // Toggle genre
+        function toggleGenre(genre) {
+            const index = selectedGenres.indexOf(genre);
+            if (index > -1) {
+                selectedGenres.splice(index, 1);
+            } else {
+                selectedGenres.push(genre);
+            }
+            updateGenresUI();
+        }
+
+        // Mettre à jour UI genres
+        function updateGenresUI() {
+            document.querySelectorAll('.genre-option').forEach(opt => {
+                opt.classList.toggle('selected', selectedGenres.includes(opt.textContent));
+            });
+        }
+
+        // Soumettre formulaire profil
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const profileData = {
+                nom_profil: document.getElementById('profileName').value,
+                avatar: selectedAvatar,
+                type_profil: document.getElementById('profileType').value,
+                genres_preferes: selectedGenres
+            };
+
+            try {
+                if (editingProfileId) {
+                    await ProfileService.update(editingProfileId, profileData);
+                    toast.success('Profil mis à jour');
+                } else {
+                    await ProfileService.create(profileData);
+                    toast.success('Profil créé');
+                }
+
+                closeProfileModal();
+                await loadProfiles();
+            } catch (error) {
+                toast.error(error.message || 'Erreur lors de l\'enregistrement');
+            }
+        });
+
+        // Gérer les profils
+        document.getElementById('manageProfilesBtn').addEventListener('click', () => {
+            // Mode édition - ajouter boutons modifier/supprimer
+            document.querySelectorAll('.profile-card:not(.add-profile)').forEach(card => {
+                if (!card.querySelector('.edit-overlay')) {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'edit-overlay';
+                    overlay.innerHTML = `
+                        <button class="btn btn-sm btn-primary edit-btn">✏️</button>
+                        <button class="btn btn-sm btn-danger delete-btn">🗑️</button>
+                    `;
+                    overlay.style.cssText = `
+                        position: absolute;
+                        bottom: -10px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        display: flex;
+                        gap: 0.5rem;
+                    `;
+                    card.style.position = 'relative';
+                    card.appendChild(overlay);
+
+                    overlay.querySelector('.edit-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openProfileModal(card.dataset.id);
+                    });
+
+                    overlay.querySelector('.delete-btn').addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (confirm('Supprimer ce profil?')) {
+                            try {
+                                await ProfileService.delete(card.dataset.id);
+                                toast.success('Profil supprimé');
+                                await loadProfiles();
+                            } catch (error) {
+                                toast.error('Erreur lors de la suppression');
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parcourir - StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header scrolled">
+        <div class="header-content">
+            <a href="/" class="logo">StreamVibe</a>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/">Accueil</a></li>
+                    <li><a href="/browse.html" class="active">Parcourir</a></li>
+                    <li><a href="/browse.html?type=film">Films</a></li>
+                    <li><a href="/browse.html?type=serie">Séries</a></li>
+                    <li><a href="/watchlist.html">Ma Liste</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-right">
+                <div class="search-box">
+                    <input type="text" placeholder="Titres, personnes, genres" id="searchInput">
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <div class="profile-dropdown" id="profileDropdown">
+                    <button class="profile-btn">
+                        <div class="profile-avatar" id="profileAvatar">?</div>
+                        <span>▼</span>
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileMenu"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main style="padding-top: calc(var(--header-height) + 2rem);">
+        <div class="container">
+            <!-- Filters -->
+            <div class="browse-filters" style="margin-bottom: 2rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+                    <h1 style="margin: 0; font-size: 2rem;" id="pageTitle">Tous les contenus</h1>
+
+                    <div style="margin-left: auto; display: flex; gap: 1rem;">
+                        <select class="form-control form-select" id="filterType" style="width: auto;">
+                            <option value="">Tous les types</option>
+                            <option value="film">Films</option>
+                            <option value="serie">Séries</option>
+                            <option value="documentaire">Documentaires</option>
+                        </select>
+
+                        <select class="form-control form-select" id="filterCategory" style="width: auto;">
+                            <option value="">Toutes catégories</option>
+                        </select>
+
+                        <select class="form-control form-select" id="filterSort" style="width: auto;">
+                            <option value="date_ajout">Plus récents</option>
+                            <option value="note_moyenne">Mieux notés</option>
+                            <option value="nombre_vues">Plus vus</option>
+                            <option value="titre">A-Z</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="content-grid" id="contentGrid">
+                <div class="loading-spinner" style="grid-column: 1 / -1; justify-self: center;"></div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination" style="display: none;"></div>
+        </div>
+    </main>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        let currentPage = 1;
+        const itemsPerPage = 20;
+        let currentFilters = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            setupHeader();
+            await loadCategories();
+            parseUrlParams();
+            setupFilters();
+            await loadContents();
+        });
+
+        function setupHeader() {
+            const profileMenu = document.getElementById('profileMenu');
+            const profileAvatar = document.getElementById('profileAvatar');
+
+            if (AuthService.isLoggedIn()) {
+                const profile = AuthService.getCurrentProfile();
+                if (profile) {
+                    profileAvatar.textContent = getAvatarIcon(profile.avatar);
+                }
+                profileMenu.innerHTML = `
+                    <a href="/profiles.html">Changer de profil</a>
+                    <a href="/account.html">Compte</a>
+                    <hr>
+                    <button onclick="AuthService.logout()">Déconnexion</button>
+                `;
+            } else {
+                profileMenu.innerHTML = `
+                    <a href="/login.html">Se connecter</a>
+                    <a href="/register.html">S'inscrire</a>
+                `;
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await ContentService.getCategories();
+                if (response.success) {
+                    const select = document.getElementById('filterCategory');
+                    response.data.forEach(cat => {
+                        const option = document.createElement('option');
+                        option.value = cat._id;
+                        option.textContent = cat.nom;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur chargement catégories:', error);
+            }
+        }
+
+        function parseUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const type = params.get('type');
+            const category = params.get('category');
+            const search = params.get('q');
+
+            if (type) {
+                document.getElementById('filterType').value = type;
+                currentFilters.type = type;
+                document.getElementById('pageTitle').textContent =
+                    type === 'film' ? 'Films' : type === 'serie' ? 'Séries' : 'Documentaires';
+            }
+
+            if (category) {
+                document.getElementById('filterCategory').value = category;
+                currentFilters.categorie = category;
+            }
+
+            if (search) {
+                document.getElementById('searchInput').value = search;
+                currentFilters.search = search;
+                document.getElementById('pageTitle').textContent = `Résultats pour "${search}"`;
+            }
+        }
+
+        function setupFilters() {
+            document.getElementById('filterType').addEventListener('change', (e) => {
+                currentFilters.type = e.target.value;
+                currentPage = 1;
+                loadContents();
+            });
+
+            document.getElementById('filterCategory').addEventListener('change', (e) => {
+                currentFilters.categorie = e.target.value;
+                currentPage = 1;
+                loadContents();
+            });
+
+            document.getElementById('filterSort').addEventListener('change', (e) => {
+                currentFilters.sort = e.target.value;
+                currentPage = 1;
+                loadContents();
+            });
+
+            // Recherche
+            const searchInput = document.getElementById('searchInput');
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentFilters.search = e.target.value;
+                    currentPage = 1;
+                    loadContents();
+                }, 500);
+            });
+        }
+
+        async function loadContents() {
+            const grid = document.getElementById('contentGrid');
+            grid.innerHTML = '<div class="loading-spinner" style="grid-column: 1 / -1; justify-self: center;"></div>';
+
+            try {
+                let response;
+
+                if (currentFilters.search) {
+                    response = await ContentService.search(currentFilters.search);
+                } else {
+                    const params = {
+                        limit: itemsPerPage,
+                        page: currentPage,
+                        ...currentFilters
+                    };
+                    response = await ContentService.getAll(params);
+                }
+
+                if (response.success) {
+                    grid.innerHTML = '';
+
+                    if (response.data.length === 0) {
+                        grid.innerHTML = `
+                            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                                <h3>Aucun contenu trouvé</h3>
+                                <p style="color: var(--text-muted);">Essayez de modifier vos filtres</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    response.data.forEach(content => {
+                        grid.appendChild(createContentCard(content));
+                    });
+
+                    // Pagination
+                    if (response.pages && response.pages > 1) {
+                        renderPagination(response.pages);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement contenus:', error);
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                        <h3>Erreur de chargement</h3>
+                        <button class="btn btn-primary" onclick="loadContents()">Réessayer</button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            pagination.style.display = 'flex';
+            pagination.innerHTML = '';
+
+            // Bouton précédent
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'pagination-btn';
+            prevBtn.textContent = '←';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.addEventListener('click', () => {
+                currentPage--;
+                loadContents();
+                window.scrollTo(0, 0);
+            });
+            pagination.appendChild(prevBtn);
+
+            // Numéros de page
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    const btn = document.createElement('button');
+                    btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                    btn.textContent = i;
+                    btn.addEventListener('click', () => {
+                        currentPage = i;
+                        loadContents();
+                        window.scrollTo(0, 0);
+                    });
+                    pagination.appendChild(btn);
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    const dots = document.createElement('span');
+                    dots.textContent = '...';
+                    dots.style.padding = '0 0.5rem';
+                    pagination.appendChild(dots);
+                }
+            }
+
+            // Bouton suivant
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'pagination-btn';
+            nextBtn.textContent = '→';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.addEventListener('click', () => {
+                currentPage++;
+                loadContents();
+                window.scrollTo(0, 0);
+            });
+            pagination.appendChild(nextBtn);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Vidéos - Admin StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="admin-logo">StreamVibe</div>
+            <div class="admin-subtitle">Administration</div>
+
+            <nav>
+                <ul class="admin-nav">
+                    <li><a href="/admin/index.html"><span class="admin-nav-icon">📊</span><span>Dashboard</span></a></li>
+                    <li><a href="/admin/contents.html"><span class="admin-nav-icon">🎬</span><span>Contenus</span></a></li>
+                    <li><a href="/admin/upload.html" class="active"><span class="admin-nav-icon">📤</span><span>Upload Vidéos</span></a></li>
+                    <li><a href="/admin/users.html"><span class="admin-nav-icon">👥</span><span>Utilisateurs</span></a></li>
+                    <div class="admin-nav-divider"></div>
+                    <li><a href="/" target="_blank"><span class="admin-nav-icon">🌐</span><span>Voir le site</span></a></li>
+                    <li><a href="#" onclick="AdminAuthService.logout()"><span class="admin-nav-icon">🚪</span><span>Déconnexion</span></a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <div class="admin-header">
+                <h1 class="admin-page-title">Upload de Vidéos</h1>
+            </div>
+
+            <!-- Upload Zone -->
+            <div class="admin-form" style="margin-bottom: 2rem;">
+                <div class="form-section">
+                    <h4 class="form-section-title">Uploader une nouvelle vidéo</h4>
+
+                    <div class="form-group">
+                        <label class="form-label">Contenu associé</label>
+                        <select class="form-control form-select" id="contentSelect">
+                            <option value="">Chargement des contenus...</option>
+                        </select>
+                    </div>
+
+                    <div class="file-upload" id="dropZone">
+                        <div class="file-upload-icon">📹</div>
+                        <div class="file-upload-text">
+                            Glissez-déposez votre fichier vidéo ici
+                        </div>
+                        <div class="file-upload-hint">
+                            ou cliquez pour sélectionner (MP4, WebM, MKV - Max 500MB)
+                        </div>
+                        <input type="file" id="videoFile" accept="video/*">
+                    </div>
+
+                    <div id="filePreview" style="display: none;">
+                        <div class="file-preview">
+                            <div class="file-preview-icon">🎬</div>
+                            <div class="file-preview-info">
+                                <div class="file-preview-name" id="fileName">-</div>
+                                <div class="file-preview-size" id="fileSize">-</div>
+                            </div>
+                            <button class="file-preview-remove" onclick="removeFile()">✕</button>
+                        </div>
+                        <div class="upload-progress" id="uploadProgress" style="display: none;">
+                            <div class="upload-progress-bar">
+                                <div class="upload-progress-fill" id="progressFill" style="width: 0%;"></div>
+                            </div>
+                            <div class="upload-progress-text">
+                                <span id="progressPercent">0%</span>
+                                <span id="progressSpeed">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg" id="uploadBtn" style="width: 100%; margin-top: 1.5rem;" disabled>
+                        📤 Uploader la vidéo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Information importante -->
+            <div class="admin-form" style="background: rgba(229, 9, 20, 0.1); border: 1px solid var(--primary-color);">
+                <h4 style="color: var(--primary-color); margin-bottom: 1rem;">📌 Information importante</h4>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Pour que l'upload de vidéos fonctionne, le backend doit être configuré avec un endpoint d'upload.
+                    Si l'endpoint n'existe pas encore, vous pouvez:
+                </p>
+                <ol style="color: var(--text-secondary); padding-left: 1.5rem;">
+                    <li>Copier manuellement les fichiers vidéo dans le dossier <code>/videos</code> du serveur</li>
+                    <li>Mettre à jour le champ "URL Vidéo" dans la gestion des contenus avec le chemin: <code>/videos/nom-fichier.mp4</code></li>
+                </ol>
+            </div>
+
+            <!-- Videos list -->
+            <div class="admin-table-container" style="margin-top: 2rem;">
+                <div class="admin-table-header">
+                    <h3 class="admin-table-title">Vidéos sur le serveur</h3>
+                    <button class="btn btn-sm btn-secondary" onclick="loadVideos()">🔄 Actualiser</button>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Fichier</th>
+                            <th>Contenu associé</th>
+                            <th>Taille</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="videosTableBody">
+                        <tr><td colspan="4" style="text-align: center;">Chargement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        if (!AdminAuthService.isLoggedIn()) {
+            window.location.href = '/admin/login.html';
+        }
+
+        let selectedFile = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadContents();
+            await loadVideos();
+            setupDragDrop();
+        });
+
+        async function loadContents() {
+            try {
+                const response = await AdminContentService.getAll({ limit: 100 });
+                const select = document.getElementById('contentSelect');
+
+                if (response.success && response.data.length > 0) {
+                    select.innerHTML = '<option value="">-- Sélectionner un contenu --</option>' +
+                        response.data.map(c => `
+                            <option value="${c._id}" data-title="${c.titre}">
+                                ${c.titre} (${c.type}) ${c.video_url ? '✅' : ''}
+                            </option>
+                        `).join('');
+                } else {
+                    select.innerHTML = '<option value="">Aucun contenu disponible</option>';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function loadVideos() {
+            const tbody = document.getElementById('videosTableBody');
+
+            try {
+                const response = await AdminVideoService.getAll();
+
+                if (response.success && response.data && response.data.length > 0) {
+                    tbody.innerHTML = response.data.map(video => `
+                        <tr>
+                            <td><strong>${video.filename || video}</strong></td>
+                            <td>${video.content_title || '-'}</td>
+                            <td>${video.size ? formatFileSize(video.size) : '-'}</td>
+                            <td class="actions">
+                                <a href="${API_CONFIG.VIDEOS_URL}/${video.filename || video}" target="_blank"
+                                   class="action-btn" title="Voir">👁️</a>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 2rem;">
+                                <div style="color: var(--text-muted);">
+                                    Aucune vidéo uploadée<br>
+                                    <small>Uploadez des vidéos ou copiez-les manuellement dans /videos</small>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 2rem;">
+                            <div style="color: var(--text-muted);">
+                                L'endpoint /api/admin/videos n'est peut-être pas configuré<br>
+                                <small>Copiez manuellement les vidéos dans le dossier /videos du serveur</small>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function setupDragDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('videoFile');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.add('dragover');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.remove('dragover');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            }, false);
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+        }
+
+        function handleFile(file) {
+            // Vérifier le type
+            if (!file.type.startsWith('video/')) {
+                toast.error('Veuillez sélectionner un fichier vidéo');
+                return;
+            }
+
+            // Vérifier la taille (500MB max)
+            if (file.size > 500 * 1024 * 1024) {
+                toast.error('La taille maximale est de 500MB');
+                return;
+            }
+
+            selectedFile = file;
+
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('filePreview').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('videoFile').value = '';
+            document.getElementById('filePreview').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = true;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Upload
+        document.getElementById('uploadBtn').addEventListener('click', async () => {
+            if (!selectedFile) {
+                toast.error('Veuillez sélectionner un fichier');
+                return;
+            }
+
+            const contentId = document.getElementById('contentSelect').value;
+
+            const formData = new FormData();
+            formData.append('video', selectedFile);
+            if (contentId) {
+                formData.append('contentId', contentId);
+            }
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressFill = document.getElementById('progressFill');
+            const progressPercent = document.getElementById('progressPercent');
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Upload en cours...';
+            progressDiv.style.display = 'block';
+
+            try {
+                // Simuler la progression (l'API réelle devrait utiliser XMLHttpRequest pour le suivi)
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += Math.random() * 10;
+                    if (progress > 90) progress = 90;
+                    progressFill.style.width = progress + '%';
+                    progressPercent.textContent = Math.round(progress) + '%';
+                }, 500);
+
+                const response = await AdminVideoService.upload(formData);
+
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                progressPercent.textContent = '100%';
+
+                if (response.success) {
+                    toast.success('Vidéo uploadée avec succès!');
+
+                    // Si un contenu était sélectionné, mettre à jour son URL vidéo
+                    if (contentId && response.data && response.data.filename) {
+                        try {
+                            await AdminContentService.update(contentId, {
+                                video_url: `/videos/${response.data.filename}`
+                            });
+                            toast.success('Contenu mis à jour avec la vidéo');
+                        } catch (e) {
+                            console.log('Mise à jour contenu échouée');
+                        }
+                    }
+
+                    removeFile();
+                    await loadVideos();
+                    await loadContents();
+                } else {
+                    throw new Error(response.message || 'Erreur upload');
+                }
+            } catch (error) {
+                console.error('Erreur upload:', error);
+                toast.error(error.message || 'Erreur lors de l\'upload. Vérifiez la configuration du serveur.');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '📤 Uploader la vidéo';
+                progressDiv.style.display = 'none';
+                progressFill.style.width = '0%';
+            }
+        });
+    </script>
+</body>
+</html>

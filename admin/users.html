@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Utilisateurs - Admin StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="admin-logo">StreamVibe</div>
+            <div class="admin-subtitle">Administration</div>
+
+            <nav>
+                <ul class="admin-nav">
+                    <li><a href="/admin/index.html"><span class="admin-nav-icon">📊</span><span>Dashboard</span></a></li>
+                    <li><a href="/admin/contents.html"><span class="admin-nav-icon">🎬</span><span>Contenus</span></a></li>
+                    <li><a href="/admin/upload.html"><span class="admin-nav-icon">📤</span><span>Upload Vidéos</span></a></li>
+                    <li><a href="/admin/users.html" class="active"><span class="admin-nav-icon">👥</span><span>Utilisateurs</span></a></li>
+                    <div class="admin-nav-divider"></div>
+                    <li><a href="/" target="_blank"><span class="admin-nav-icon">🌐</span><span>Voir le site</span></a></li>
+                    <li><a href="#" onclick="AdminAuthService.logout()"><span class="admin-nav-icon">🚪</span><span>Déconnexion</span></a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <div class="admin-header">
+                <h1 class="admin-page-title">Gestion des Utilisateurs</h1>
+            </div>
+
+            <!-- Stats utilisateurs -->
+            <div class="stats-grid" id="userStats" style="margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-icon users">👥</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="totalUsers">-</div>
+                        <div class="stat-label">Total utilisateurs</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(52, 168, 83, 0.2); color: #34a853;">✓</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="activeUsers">-</div>
+                        <div class="stat-label">Utilisateurs actifs</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(251, 188, 4, 0.2); color: #fbbc04;">⭐</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="premiumUsers">-</div>
+                        <div class="stat-label">Abonnés Premium</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table utilisateurs -->
+            <div class="admin-table-container">
+                <div class="admin-table-header">
+                    <h3 class="admin-table-title">Liste des utilisateurs</h3>
+                    <div class="admin-table-filters">
+                        <select class="filter-select" id="filterStatus">
+                            <option value="">Tous statuts</option>
+                            <option value="actif">Actif</option>
+                            <option value="suspendu">Suspendu</option>
+                            <option value="inactif">Inactif</option>
+                        </select>
+                        <select class="filter-select" id="filterSubscription">
+                            <option value="">Tous abonnements</option>
+                            <option value="gratuit">Gratuit</option>
+                            <option value="basique">Basique</option>
+                            <option value="standard">Standard</option>
+                            <option value="premium">Premium</option>
+                        </select>
+                    </div>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Email</th>
+                            <th>Téléphone</th>
+                            <th>Abonnement</th>
+                            <th>Expiration</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr><td colspan="7" style="text-align: center;">Chargement...</td></tr>
+                    </tbody>
+                </table>
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Prolonger Abonnement -->
+    <div class="modal-overlay" id="extendModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Prolonger l'abonnement</h3>
+                <button class="modal-close" onclick="closeExtendModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="extendUserInfo" style="margin-bottom: 1rem;"></p>
+                <div class="form-group">
+                    <label class="form-label">Nombre de jours à ajouter</label>
+                    <input type="number" class="form-control" id="extendDays" value="30" min="1" max="365">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeExtendModal()">Annuler</button>
+                <button class="btn btn-primary" id="confirmExtendBtn">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        if (!AdminAuthService.isLoggedIn()) {
+            window.location.href = '/admin/login.html';
+        }
+
+        let currentPage = 1;
+        let selectedUserId = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStats();
+            await loadUsers();
+            setupFilters();
+        });
+
+        function setupFilters() {
+            document.getElementById('filterStatus').addEventListener('change', loadUsers);
+            document.getElementById('filterSubscription').addEventListener('change', loadUsers);
+        }
+
+        async function loadStats() {
+            try {
+                const response = await AdminStatsService.getDashboard();
+                if (response.success) {
+                    document.getElementById('totalUsers').textContent = response.data.utilisateurs.total;
+                    document.getElementById('activeUsers').textContent = response.data.utilisateurs.actifs;
+                }
+
+                // Compter les premium
+                const premiumResponse = await AdminUserService.getAll({ type_abonnement: 'premium', limit: 1 });
+                if (premiumResponse.success) {
+                    document.getElementById('premiumUsers').textContent = premiumResponse.total || 0;
+                }
+            } catch (error) {
+                console.error('Erreur stats:', error);
+            }
+        }
+
+        async function loadUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Chargement...</td></tr>';
+
+            try {
+                const params = {
+                    limit: 10,
+                    page: currentPage
+                };
+
+                const status = document.getElementById('filterStatus').value;
+                const subscription = document.getElementById('filterSubscription').value;
+
+                if (status) params.statut = status;
+                if (subscription) params.type_abonnement = subscription;
+
+                const response = await AdminUserService.getAll(params);
+
+                if (response.success && response.data.length > 0) {
+                    tbody.innerHTML = response.data.map(user => `
+                        <tr>
+                            <td class="user-cell">
+                                <div class="user-avatar" style="background-color: ${stringToColor(user.nom_complet)}">
+                                    ${getInitials(user.nom_complet)}
+                                </div>
+                                <span>${user.nom_complet}</span>
+                            </td>
+                            <td>${user.email}</td>
+                            <td>${user.telephone || '-'}</td>
+                            <td>
+                                <span class="badge ${getSubscriptionBadge(user.type_abonnement)}">
+                                    ${user.type_abonnement}
+                                </span>
+                            </td>
+                            <td>${user.date_fin_abonnement ? formatDateShort(user.date_fin_abonnement) : '-'}</td>
+                            <td>
+                                <span class="badge ${getStatusBadge(user.statut_compte)}">
+                                    ${user.statut_compte}
+                                </span>
+                            </td>
+                            <td class="actions">
+                                <button class="action-btn" onclick="openExtendModal('${user.id}', '${user.nom_complet}')"
+                                        title="Prolonger abonnement">➕</button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Pagination
+                    if (response.pages > 1) {
+                        renderPagination(response.pages);
+                    }
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Aucun utilisateur trouvé</td></tr>';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Erreur de chargement</td></tr>';
+            }
+        }
+
+        function getSubscriptionBadge(type) {
+            switch (type) {
+                case 'premium': return 'badge-success';
+                case 'standard': return 'badge-info';
+                case 'basique': return 'badge-warning';
+                default: return 'badge-info';
+            }
+        }
+
+        function getStatusBadge(status) {
+            switch (status) {
+                case 'actif': return 'badge-success';
+                case 'suspendu': return 'badge-danger';
+                case 'inactif': return 'badge-warning';
+                default: return 'badge-info';
+            }
+        }
+
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                btn.textContent = i;
+                btn.addEventListener('click', () => {
+                    currentPage = i;
+                    loadUsers();
+                });
+                pagination.appendChild(btn);
+            }
+        }
+
+        // Modal Prolonger
+        function openExtendModal(userId, userName) {
+            selectedUserId = userId;
+            document.getElementById('extendUserInfo').textContent = `Utilisateur: ${userName}`;
+            document.getElementById('extendDays').value = 30;
+            document.getElementById('extendModal').classList.add('active');
+        }
+
+        function closeExtendModal() {
+            document.getElementById('extendModal').classList.remove('active');
+            selectedUserId = null;
+        }
+
+        document.getElementById('confirmExtendBtn').addEventListener('click', async () => {
+            if (!selectedUserId) return;
+
+            const days = parseInt(document.getElementById('extendDays').value);
+            if (!days || days < 1) {
+                toast.error('Veuillez entrer un nombre de jours valide');
+                return;
+            }
+
+            try {
+                const response = await AdminUserService.extendSubscription(selectedUserId, days);
+                if (response.success) {
+                    toast.success(`Abonnement prolongé de ${days} jours`);
+                    closeExtendModal();
+                    await loadUsers();
+                } else {
+                    toast.error(response.message || 'Erreur');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                toast.error(error.message || 'Erreur lors de la prolongation');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détails - StreamVibe</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">StreamVibe</a>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/">Accueil</a></li>
+                    <li><a href="/browse.html">Parcourir</a></li>
+                    <li><a href="/browse.html?type=film">Films</a></li>
+                    <li><a href="/browse.html?type=serie">Séries</a></li>
+                    <li><a href="/watchlist.html">Ma Liste</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-right">
+                <div class="profile-dropdown">
+                    <button class="profile-btn">
+                        <div class="profile-avatar" id="profileAvatar">?</div>
+                        <span>▼</span>
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileMenu"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Detail Page -->
+    <div class="detail-page">
+        <!-- Hero Background -->
+        <div class="detail-hero" id="detailHero"></div>
+
+        <!-- Content -->
+        <div class="detail-content">
+            <div class="detail-header">
+                <div class="detail-poster" id="detailPoster">
+                    <div class="placeholder">🎬</div>
+                </div>
+
+                <div class="detail-info">
+                    <h1 class="detail-title" id="detailTitle">Chargement...</h1>
+
+                    <div class="detail-meta" id="detailMeta"></div>
+
+                    <div class="detail-genres" id="detailGenres"></div>
+
+                    <p class="detail-description" id="detailDescription"></p>
+
+                    <div class="detail-actions">
+                        <button class="btn btn-primary btn-lg" id="playBtn">
+                            ▶ Lecture
+                        </button>
+                        <button class="btn btn-secondary btn-lg" id="watchlistBtn">
+                            + Ma Liste
+                        </button>
+                        <button class="btn btn-icon btn-secondary" id="likeBtn" title="J'aime">
+                            👍
+                        </button>
+                        <button class="btn btn-icon btn-secondary" id="shareBtn" title="Partager">
+                            📤
+                        </button>
+                    </div>
+
+                    <!-- Info supplémentaires -->
+                    <div class="detail-extra" style="margin-top: 2rem;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div>
+                                <span style="color: var(--text-muted);">Réalisateur</span>
+                                <p id="detailDirector" style="margin: 0.25rem 0 0;">-</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Casting</span>
+                                <p id="detailCast" style="margin: 0.25rem 0 0;">-</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Langue originale</span>
+                                <p id="detailLanguage" style="margin: 0.25rem 0 0;">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section évaluations -->
+            <div class="rating-section" id="ratingSection">
+                <h3>Votre évaluation</h3>
+                <div id="userRating">
+                    <p style="color: var(--text-muted);">Connectez-vous pour noter ce contenu</p>
+                </div>
+            </div>
+
+            <!-- Avis -->
+            <div class="reviews-list" id="reviewsList">
+                <h3>Avis des spectateurs</h3>
+                <div id="reviewsContainer">
+                    <p style="color: var(--text-muted);">Aucun avis pour le moment</p>
+                </div>
+            </div>
+
+            <!-- Contenus similaires -->
+            <section class="content-section" id="similarSection" style="padding: 0; margin-top: 3rem;">
+                <h3>Contenus similaires</h3>
+                <div class="content-row" id="similarContent"></div>
+            </section>
+        </div>
+    </div>
+
+    <script src="/js/api/config.js"></script>
+    <script src="/js/api/apiService.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script>
+        let contentData = null;
+        let userRating = 0;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            setupHeader();
+
+            const contentId = getUrlParam('id');
+            if (!contentId) {
+                window.location.href = '/browse.html';
+                return;
+            }
+
+            await loadContentDetails(contentId);
+        });
+
+        function setupHeader() {
+            const profileMenu = document.getElementById('profileMenu');
+            const profileAvatar = document.getElementById('profileAvatar');
+
+            if (AuthService.isLoggedIn()) {
+                const profile = AuthService.getCurrentProfile();
+                if (profile) {
+                    profileAvatar.textContent = getAvatarIcon(profile.avatar);
+                }
+                profileMenu.innerHTML = `
+                    <a href="/profiles.html">Changer de profil</a>
+                    <a href="/account.html">Compte</a>
+                    <hr>
+                    <button onclick="AuthService.logout()">Déconnexion</button>
+                `;
+            } else {
+                profileMenu.innerHTML = `
+                    <a href="/login.html">Se connecter</a>
+                    <a href="/register.html">S'inscrire</a>
+                `;
+            }
+        }
+
+        async function loadContentDetails(id) {
+            try {
+                const response = await ContentService.getById(id);
+
+                if (response.success && response.data) {
+                    contentData = response.data;
+                    renderContent(contentData);
+                    await loadRatings(id);
+                    await loadSimilarContent(contentData);
+                    await checkWatchlist(id);
+
+                    if (AuthService.isLoggedIn()) {
+                        await loadUserRating(id);
+                    }
+                } else {
+                    throw new Error('Contenu non trouvé');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                document.querySelector('.detail-content').innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <h2>Contenu non trouvé</h2>
+                        <p>Le contenu demandé n'existe pas ou a été supprimé.</p>
+                        <a href="/browse.html" class="btn btn-primary">Retour au catalogue</a>
+                    </div>
+                `;
+            }
+        }
+
+        function renderContent(content) {
+            document.title = `${content.titre} - StreamVibe`;
+
+            // Hero background
+            const hero = document.getElementById('detailHero');
+            if (content.banniere_url) {
+                hero.style.backgroundImage = `url(${content.banniere_url})`;
+            }
+
+            // Poster
+            const poster = document.getElementById('detailPoster');
+            if (content.affiche_url) {
+                poster.innerHTML = `<img src="${content.affiche_url}" alt="${content.titre}">`;
+            } else {
+                poster.innerHTML = `<div class="placeholder">${getTypeIcon(content.type)}</div>`;
+            }
+
+            // Titre
+            document.getElementById('detailTitle').textContent = content.titre;
+
+            // Meta
+            const meta = document.getElementById('detailMeta');
+            meta.innerHTML = `
+                ${content.note_moyenne ? `
+                    <div class="detail-rating">
+                        <span>★</span>
+                        <span>${content.note_moyenne.toFixed(1)}</span>
+                        <span style="color: var(--text-muted);">(${content.nombre_notes || 0} avis)</span>
+                    </div>
+                ` : ''}
+                <span>${content.annee_sortie || ''}</span>
+                ${content.duree_minutes ? `<span>${formatDuration(content.duree_minutes)}</span>` : ''}
+                ${content.classification_age ? `<span class="badge badge-warning">${content.classification_age}</span>` : ''}
+                <span class="badge badge-info">${content.type === 'film' ? 'Film' : content.type === 'serie' ? 'Série' : 'Documentaire'}</span>
+            `;
+
+            // Genres
+            const genres = document.getElementById('detailGenres');
+            if (content.genres && content.genres.length > 0) {
+                genres.innerHTML = content.genres.map(g => `<span class="genre-tag">${g}</span>`).join('');
+            }
+
+            // Description
+            document.getElementById('detailDescription').textContent = content.description || content.synopsis_court || '';
+
+            // Extra info
+            if (content.realisateur) {
+                document.getElementById('detailDirector').textContent = content.realisateur;
+            }
+            if (content.acteurs && content.acteurs.length > 0) {
+                document.getElementById('detailCast').textContent = content.acteurs.join(', ');
+            }
+            if (content.langue_originale) {
+                const langues = { 'fr': 'Français', 'en': 'Anglais', 'es': 'Espagnol' };
+                document.getElementById('detailLanguage').textContent = langues[content.langue_originale] || content.langue_originale;
+            }
+
+            // Bouton lecture
+            document.getElementById('playBtn').addEventListener('click', () => {
+                if (!AuthService.isLoggedIn()) {
+                    toast.warning('Connectez-vous pour regarder');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                window.location.href = `/player.html?id=${content._id}`;
+            });
+
+            // Bouton watchlist
+            document.getElementById('watchlistBtn').addEventListener('click', () => toggleWatchlistBtn());
+
+            // Bouton partager
+            document.getElementById('shareBtn').addEventListener('click', () => {
+                if (navigator.share) {
+                    navigator.share({
+                        title: content.titre,
+                        text: content.description,
+                        url: window.location.href
+                    });
+                } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Lien copié!');
+                }
+            });
+        }
+
+        async function loadRatings(contentId) {
+            try {
+                const response = await ContentService.getRatings(contentId);
+                if (response.success && response.data.length > 0) {
+                    const container = document.getElementById('reviewsContainer');
+                    container.innerHTML = '';
+
+                    response.data.forEach(review => {
+                        const card = document.createElement('div');
+                        card.className = 'review-card';
+                        card.innerHTML = `
+                            <div class="review-header">
+                                <span class="review-author">Utilisateur</span>
+                                <span class="review-rating">${'★'.repeat(review.note)}${'☆'.repeat(5 - review.note)}</span>
+                            </div>
+                            ${review.avis_texte ? `<p class="review-text">${review.avis_texte}</p>` : ''}
+                            <div class="review-date">${formatDate(review.date_evaluation)}</div>
+                        `;
+                        container.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.log('Pas d\'avis');
+            }
+        }
+
+        async function loadUserRating(contentId) {
+            const profile = AuthService.getCurrentProfile();
+            if (!profile) return;
+
+            const ratingSection = document.getElementById('userRating');
+
+            try {
+                const response = await RatingService.getMyRating(profile._id, contentId);
+                if (response.success && response.data) {
+                    userRating = response.data.note;
+                }
+            } catch (e) {
+                // Pas encore noté
+            }
+
+            ratingSection.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <div id="starRating"></div>
+                    <span id="ratingText" style="color: var(--text-muted);">
+                        ${userRating > 0 ? `Votre note: ${userRating}/5` : 'Cliquez pour noter'}
+                    </span>
+                </div>
+                <div class="rating-form" style="margin-top: 1rem;">
+                    <textarea id="ratingComment" placeholder="Votre avis (optionnel)...">${''}</textarea>
+                    <button class="btn btn-primary" id="submitRating" style="margin-top: 0.5rem;">
+                        ${userRating > 0 ? 'Modifier ma note' : 'Envoyer'}
+                    </button>
+                </div>
+            `;
+
+            // Créer les étoiles
+            const starContainer = document.getElementById('starRating');
+            const starRating = createStarRating(userRating, (rating) => {
+                userRating = rating;
+                document.getElementById('ratingText').textContent = `Votre note: ${rating}/5`;
+            });
+            starContainer.appendChild(starRating);
+
+            // Soumettre la note
+            document.getElementById('submitRating').addEventListener('click', async () => {
+                if (userRating === 0) {
+                    toast.warning('Veuillez sélectionner une note');
+                    return;
+                }
+
+                try {
+                    const comment = document.getElementById('ratingComment').value;
+                    await RatingService.rate(profile._id, contentId, userRating, comment);
+                    toast.success('Merci pour votre avis!');
+                    await loadRatings(contentId);
+                } catch (error) {
+                    toast.error('Erreur lors de l\'envoi');
+                }
+            });
+        }
+
+        async function loadSimilarContent(content) {
+            try {
+                // Charger des contenus du même type/genre
+                const response = await ContentService.getAll({
+                    type: content.type,
+                    limit: 10
+                });
+
+                if (response.success && response.data.length > 0) {
+                    const container = document.getElementById('similarContent');
+                    container.innerHTML = '';
+
+                    response.data
+                        .filter(c => c._id !== content._id)
+                        .slice(0, 8)
+                        .forEach(c => {
+                            container.appendChild(createContentCard(c));
+                        });
+                }
+            } catch (error) {
+                console.log('Pas de contenus similaires');
+            }
+        }
+
+        async function checkWatchlist(contentId) {
+            if (!AuthService.isLoggedIn()) return;
+
+            const profile = AuthService.getCurrentProfile();
+            if (!profile) return;
+
+            try {
+                const response = await WatchlistService.check(profile._id, contentId);
+                const btn = document.getElementById('watchlistBtn');
+
+                if (response.data && response.data.inWatchlist) {
+                    btn.textContent = '✓ Dans Ma Liste';
+                    btn.dataset.inList = 'true';
+                }
+            } catch (e) {
+                // Pas dans la liste
+            }
+        }
+
+        async function toggleWatchlistBtn() {
+            if (!AuthService.isLoggedIn()) {
+                toast.warning('Connectez-vous pour ajouter à votre liste');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const profile = AuthService.getCurrentProfile();
+            if (!profile) {
+                window.location.href = '/profiles.html';
+                return;
+            }
+
+            const btn = document.getElementById('watchlistBtn');
+            const inList = btn.dataset.inList === 'true';
+
+            try {
+                if (inList) {
+                    await WatchlistService.remove(profile._id, contentData._id);
+                    btn.textContent = '+ Ma Liste';
+                    btn.dataset.inList = 'false';
+                    toast.success('Retiré de Ma Liste');
+                } else {
+                    await WatchlistService.add(profile._id, contentData._id);
+                    btn.textContent = '✓ Dans Ma Liste';
+                    btn.dataset.inList = 'true';
+                    toast.success('Ajouté à Ma Liste');
+                }
+            } catch (error) {
+                toast.error('Erreur lors de la mise à jour');
+            }
+        }
+    </script>
+</body>
+</html>
